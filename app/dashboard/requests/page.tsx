@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Eye } from 'lucide-react';
+import Link from 'next/link';
 
 export default function RequestsPage() {
   const { token, isLoading } = useAuth();
@@ -36,20 +37,26 @@ export default function RequestsPage() {
 
     const fetchRequests = async () => {
       try {
-        let data;
+        let response: any;
+        
         if (statusFilter === 'PENDING') {
-          data = await adminApi.getPendingRequests(token);
-        } else if (statusFilter === 'ACTIVE') {
-          data = await adminApi.getActiveRequests(token);
+          response = await adminApi.getPendingRequests(token);
+        } else if (statusFilter === 'ACCEPTED') {
+          response = await adminApi.getActiveRequests(token);
         } else if (statusFilter === 'COMPLETED') {
-          data = await adminApi.getCompletedRequests(token);
+          response = await adminApi.getCompletedRequests(token);
         } else {
-          data = await adminApi.getAllRequests(token);
+          response = await adminApi.getAllRequests(token);
         }
-        setRequests(Array.isArray(data) ? data : data.data || []);
-      } catch (error) {
-        console.error('[v0] Error fetching requests:', error);
-        toast.error('Failed to load requests');
+        
+        // Handle different response formats
+        const requestsData = response?.data || response || [];
+        console.log('[Requests] Fetched:', requestsData);
+        
+        setRequests(Array.isArray(requestsData) ? requestsData : []);
+      } catch (error: any) {
+        console.error('[Requests] Error fetching requests:', error);
+        toast.error(error.message || 'Failed to load requests');
       } finally {
         setRequestsLoading(false);
       }
@@ -58,11 +65,17 @@ export default function RequestsPage() {
     fetchRequests();
   }, [token, isLoading, statusFilter]);
 
-  const filteredRequests = requests.filter(request =>
-    request.traderName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    request.traderPhone.includes(searchQuery) ||
-    request.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredRequests = requests.filter(request => {
+    if (!request) return false;
+    
+    const matchesSearch = !searchQuery ||
+      request.traderName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      request.traderPhone?.includes(searchQuery) ||
+      request.id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      request.productType?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    return matchesSearch;
+  });
 
   if (requestsLoading) {
     return (
@@ -85,7 +98,7 @@ export default function RequestsPage() {
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4">
         <Input
-          placeholder="Search requests by ID, trader name, or phone..."
+          placeholder="Search requests by ID, trader, phone, or product..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="bg-input border-border text-foreground placeholder:text-muted-foreground md:flex-1"
@@ -97,8 +110,9 @@ export default function RequestsPage() {
           <SelectContent className="bg-card border-border">
             <SelectItem value="">All Statuses</SelectItem>
             <SelectItem value="PENDING">Pending</SelectItem>
-            <SelectItem value="ACTIVE">Active</SelectItem>
+            <SelectItem value="ACCEPTED">Accepted</SelectItem>
             <SelectItem value="COMPLETED">Completed</SelectItem>
+            <SelectItem value="CANCELLED">Cancelled</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -111,7 +125,8 @@ export default function RequestsPage() {
               <TableHead className="text-foreground">Request ID</TableHead>
               <TableHead className="text-foreground">Trader</TableHead>
               <TableHead className="text-foreground">Phone</TableHead>
-              <TableHead className="text-foreground">Weight (kg)</TableHead>
+              <TableHead className="text-foreground">Product</TableHead>
+              <TableHead className="text-foreground">Est. Weight (kg)</TableHead>
               <TableHead className="text-foreground">Agent</TableHead>
               <TableHead className="text-foreground">Status</TableHead>
               <TableHead className="text-foreground">Created</TableHead>
@@ -121,43 +136,73 @@ export default function RequestsPage() {
           <TableBody>
             {filteredRequests.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  No requests found
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  {requests.length === 0 ? 'No requests yet' : 'No requests match your filters'}
                 </TableCell>
               </TableRow>
             ) : (
               filteredRequests.map((request) => (
                 <TableRow key={request.id} className="border-border">
-                  <TableCell className="font-mono text-sm text-foreground">{request.id.substring(0, 8)}</TableCell>
-                  <TableCell className="font-medium text-foreground">{request.traderName}</TableCell>
-                  <TableCell className="text-muted-foreground">{request.traderPhone}</TableCell>
-                  <TableCell className="text-foreground">{request.foodWeight.toLocaleString()}</TableCell>
+                  <TableCell className="font-mono text-xs text-foreground">
+                    {request.id?.substring(0, 8) || 'N/A'}
+                  </TableCell>
+                  <TableCell className="font-medium text-foreground">
+                    {request.traderName || 'N/A'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {request.traderPhone || 'N/A'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {request.productType || 'N/A'}
+                  </TableCell>
+                  <TableCell className="text-foreground">
+                    {request.estimatedWeight?.toLocaleString() || '0'}
+                  </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {request.agentName || 'Unassigned'}
+                    <div>
+                      {request.agentName ? (
+                        <>
+                          <p className="font-medium">{request.agentName}</p>
+                          <p className="text-xs opacity-75">{request.agentPhone}</p>
+                        </>
+                      ) : (
+                        <span className="text-amber-500">Unassigned</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       request.status === 'COMPLETED'
                         ? 'bg-emerald-500/10 text-emerald-500'
-                        : request.status === 'ACTIVE'
+                        : request.status === 'ACCEPTED'
                         ? 'bg-blue-500/10 text-blue-500'
-                        : 'bg-amber-500/10 text-amber-500'
+                        : request.status === 'PENDING'
+                        ? 'bg-amber-500/10 text-amber-500'
+                        : 'bg-gray-500/10 text-gray-500'
                     }`}>
                       {request.status}
                     </span>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {new Date(request.createdAt).toLocaleDateString()}
+                  <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                    {request.createdAt 
+                      ? new Date(request.createdAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })
+                      : 'N/A'}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1"
-                    >
-                      <Eye className="w-4 h-4" />
-                      <span className="hidden sm:inline">View</span>
-                    </Button>
+                    <Link href={`/dashboard/requests/${request.id}`}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1"
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span className="hidden sm:inline">View</span>
+                      </Button>
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))
@@ -165,6 +210,34 @@ export default function RequestsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Summary */}
+      {requests.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="p-4 rounded-lg border border-border bg-card">
+            <p className="text-sm text-muted-foreground">Total Requests</p>
+            <p className="text-2xl font-bold text-foreground">{requests.length}</p>
+          </div>
+          <div className="p-4 rounded-lg border border-border bg-card">
+            <p className="text-sm text-muted-foreground">Pending</p>
+            <p className="text-2xl font-bold text-amber-500">
+              {requests.filter(r => r.status === 'PENDING').length}
+            </p>
+          </div>
+          <div className="p-4 rounded-lg border border-border bg-card">
+            <p className="text-sm text-muted-foreground">Accepted</p>
+            <p className="text-2xl font-bold text-blue-500">
+              {requests.filter(r => r.status === 'ACCEPTED').length}
+            </p>
+          </div>
+          <div className="p-4 rounded-lg border border-border bg-card">
+            <p className="text-sm text-muted-foreground">Completed</p>
+            <p className="text-2xl font-bold text-emerald-500">
+              {requests.filter(r => r.status === 'COMPLETED').length}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

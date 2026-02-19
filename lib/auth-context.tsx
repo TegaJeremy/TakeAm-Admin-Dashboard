@@ -3,59 +3,79 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 interface AuthContextType {
-  token: string | null;
-  email: string | null;
-  isLoading: boolean;
   isAuthenticated: boolean;
+  token: string | null;
+  user: {
+    id: string;
+    email: string;
+    role: 'ADMIN' | 'SUPER_ADMIN';
+    fullName?: string;
+  } | null;  // ADD THIS
+  isLoading: boolean;
   login: (token: string, email: string) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-  const [email, setEmail] = useState<string | null>(null);
+  const [user, setUser] = useState<AuthContextType['user']>(null);  // ADD THIS
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Restore token from localStorage on mount
-    const storedToken = localStorage.getItem('auth_token');
-    const storedEmail = localStorage.getItem('auth_email');
+    const storedToken = localStorage.getItem('token');
+    const storedEmail = localStorage.getItem('userEmail');
+    const storedUser = localStorage.getItem('user');  // ADD THIS
     
     if (storedToken && storedEmail) {
       setToken(storedToken);
-      setEmail(storedEmail);
+      setIsAuthenticated(true);
+      
+      // ADD THIS: Parse and set user data
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch (e) {
+          console.error('Failed to parse user data');
+        }
+      }
     }
-    
     setIsLoading(false);
   }, []);
 
-  const login = (newToken: string, newEmail: string) => {
+  const login = (newToken: string, email: string, userData?: any) => {  // ADD userData param
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('userEmail', email);
+    
+    // ADD THIS: Store user data
+    if (userData) {
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+    }
+    
     setToken(newToken);
-    setEmail(newEmail);
-    localStorage.setItem('auth_token', newToken);
-    localStorage.setItem('auth_email', newEmail);
+    setIsAuthenticated(true);
   };
 
   const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('user');  // ADD THIS
     setToken(null);
-    setEmail(null);
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_email');
+    setUser(null);  // ADD THIS
+    setIsAuthenticated(false);
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        token,
-        email,
-        isLoading,
-        isAuthenticated: !!token,
-        login,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={{ 
+      isAuthenticated, 
+      token, 
+      user,  // ADD THIS
+      isLoading, 
+      login, 
+      logout 
+    }}>
       {children}
     </AuthContext.Provider>
   );

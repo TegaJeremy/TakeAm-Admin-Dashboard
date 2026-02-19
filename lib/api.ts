@@ -17,47 +17,110 @@ export async function apiCall<T>(
 ): Promise<T> {
   const { token, ...fetchOptions } = options;
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...fetchOptions.headers,
+    ...(fetchOptions.headers as Record<string, string>),
   };
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...fetchOptions,
-    headers,
-  });
-
-  let data;
   try {
-    data = await response.json();
-  } catch {
-    data = null;
-  }
+    console.log(`[API] Calling: ${endpoint}`, { 
+      method: fetchOptions.method || 'GET',
+      hasToken: !!token 
+    });
 
-  if (!response.ok) {
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      ...fetchOptions,
+      headers,
+    });
+
+    let data;
+    const contentType = response.headers.get('content-type');
+    
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error('[API] Failed to parse JSON response:', jsonError);
+        data = null;
+      }
+    } else {
+      try {
+        const text = await response.text();
+        console.warn('[API] Non-JSON response:', text.substring(0, 200));
+        data = { message: text };
+      } catch (textError) {
+        data = null;
+      }
+    }
+
+    console.log(`[API] Response from ${endpoint}:`, {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      data: data,
+    });
+
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      
+      if (data?.message) {
+        errorMessage = data.message;
+      } else if (data?.error) {
+        errorMessage = data.error;
+      } else if (response.status === 401) {
+        errorMessage = 'Invalid credentials or session expired';
+      } else if (response.status === 403) {
+        errorMessage = 'Access denied';
+      } else if (response.status === 404) {
+        errorMessage = 'Resource not found';
+      } else if (response.status === 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (response.status === 502) {
+        errorMessage = 'Service temporarily unavailable. Please try again in a moment.';
+      } else if (response.status === 503) {
+        errorMessage = 'Service unavailable. Please try again.';
+      }
+
+      throw new ApiError(response.status, errorMessage, data);
+    }
+
+    return data as T;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      console.error('[API] API Error:', {
+        status: error.status,
+        message: error.message,
+        data: error.data,
+      });
+      throw error;
+    }
+
+    console.error('[API] Network Error:', error);
     throw new ApiError(
-      response.status,
-      data?.message || `HTTP ${response.status}`,
-      data
+      0,
+      'Network error. Please check your connection and try again.',
+      null
     );
   }
-
-  return data;
 }
 
-// Admin Dashboard API endpoints
 export const adminApi = {
   // Stats
   getStats: (token: string) =>
     apiCall('/api/v1/admin/stats', { token }),
 
+  getDashboardStats: (token: string) =>
+    apiCall('/api/v1/admin/stats', { token }),
+
   // Agents
-  getAgents: (token: string) =>
-    apiCall('/api/v1/admin/agents/pending', { token }),
+  getAgents: (token: string, params?: { page?: number; size?: number }) => {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return apiCall(`/api/v1/admin/agents/pending${query}`, { token });
+  },
 
   getActiveAgents: (token: string) =>
     apiCall('/api/v1/admin/agents/active', { token }),
@@ -69,7 +132,7 @@ export const adminApi = {
     apiCall(`/api/v1/admin/agents/${id}/approve`, {
       token,
       method: 'POST',
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify({ reason: reason || 'Approved by admin' }),
     }),
 
   rejectAgent: (id: string, token: string, reason: string) =>
@@ -97,83 +160,126 @@ export const adminApi = {
 
   // Users/Traders
   getUsers: (token: string, params?: Record<string, string>) => {
-    const query = new URLSearchParams(params).toString();
-    return apiCall(`/api/v1/admin/users${query ? '?' + query : ''}`, {
-      token,
-    });
+    const query = params ? new URLSearchParams(params).toString() : '';
+    return apiCall(`/api/v1/admin/users${query ? '?' + query : ''}`, { token });
   },
 
   getUserById: (id: string, token: string) =>
     apiCall(`/api/v1/admin/users/${id}`, { token }),
 
-  updateUserStatus: (
-    id: string,
-    status: string,
-    token: string,
-    reason?: string
-  ) =>
-    apiCall(`/api/v1/admin/users/${id}/status`, {
+  suspendUser: (id: string, token: string, reason: string) =>
+    apiCall(`/api/v1/admin/users/${id}/suspend`, {
       token,
-      method: 'PUT',
-      body: JSON.stringify({ status, reason }),
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  banUser: (id: string, token: string, reason: string) =>
+    apiCall(`/api/v1/admin/users/${id}/ban`, {
+      token,
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  reactivateUser: (id: string, token: string, reason: string) =>
+    apiCall(`/api/v1/admin/users/${id}/reactivate`, {
+      token,
+      method: 'POST',
+      body: JSON.stringify({ reason }),
     }),
 
   // Orders
-  getOrders: (token: string) =>
-    apiCall('/api/v1/admin/orders', { token }),
+  getOrders: (token: string, params?: { page?: number; limit?: number }) => {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return apiCall(`/api/v1/admin/orders${query}`, { token });
+  },
 
   getOrderById: (id: string, token: string) =>
     apiCall(`/api/v1/admin/orders/${id}`, { token }),
 
-  updateOrderDeliveryStatus: (
-    id: string,
-    deliveryStatus: string,
-    token: string
-  ) =>
-    apiCall(`/api/v1/admin/orders/${id}/delivery-status`, {
+  updateOrderStatus: (id: string, status: string, token: string) =>
+    apiCall(`/api/v1/admin/orders/${id}/status`, {
       token,
       method: 'PUT',
-      body: JSON.stringify({ deliveryStatus }),
+      body: JSON.stringify({ status }),
     }),
 
   // Products
   getProducts: (token: string) =>
     apiCall('/api/v1/admin/products', { token }),
 
-  getProductById: (id: string, token: string) =>
-    apiCall(`/api/v1/admin/products/${id}`, { token }),
+  getProductById: (productId: string, token: string) =>
+    apiCall(`/api/v1/admin/products/${productId}`, { token }),
 
   createProduct: (
-    data: {
-      name: string;
+    data: FormData | {
+      productName: string;
       grade: string;
       availableWeight: number;
       pricePerKg: number;
       description?: string;
       location?: string;
-      images?: string[];
+      status?: string;
     },
     token: string
-  ) =>
-    apiCall('/api/v1/admin/products', {
+  ): Promise<any> => {
+    // If FormData, send as multipart
+    if (data instanceof FormData) {
+      return fetch(`${BASE_URL}/api/v1/admin/products`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type - browser will set it with boundary for multipart/form-data
+        },
+        body: data,
+      }).then(async (response) => {
+        const contentType = response.headers.get('content-type');
+        let result;
+        
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            result = await response.json();
+          } catch (jsonError) {
+            console.error('[API] Failed to parse JSON response:', jsonError);
+            result = null;
+          }
+        } else {
+          const text = await response.text();
+          result = { message: text };
+        }
+        
+        console.log(`[API] Response from /api/v1/admin/products:`, {
+          status: response.status,
+          ok: response.ok,
+          data: result,
+        });
+        
+        if (!response.ok) {
+          const errorMessage = result?.message || `Failed to create product (${response.status})`;
+          throw new ApiError(response.status, errorMessage, result);
+        }
+        
+        return result;
+      });
+    }
+
+    // Otherwise send as JSON
+    return apiCall('/api/v1/admin/products', {
       token,
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
-  updateProduct: (
-    id: string,
-    data: Record<string, any>,
-    token: string
-  ) =>
+  updateProduct: (id: string, data: Record<string, any>, token: string) =>
     apiCall(`/api/v1/admin/products/${id}`, {
       token,
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
-  deleteProduct: (id: string, token: string) =>
-    apiCall(`/api/v1/admin/products/${id}`, {
+  deleteProduct: (productId: string, token: string) =>
+    apiCall(`/api/v1/admin/products/${productId}`, {
       token,
       method: 'DELETE',
     }),
@@ -182,23 +288,41 @@ export const adminApi = {
   getPendingPayments: (token: string) =>
     apiCall('/api/v1/gradings/admin/pending-payments', { token }),
 
+  getAllGradings: (token: string, params?: { 
+    status?: string; 
+    agentId?: string; 
+    traderId?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return apiCall(`/api/v1/gradings/admin/all${query}`, { token });
+  },
+
   markPaymentAsPaid: (id: string, token: string) =>
     apiCall(`/api/v1/gradings/${id}/mark-paid`, {
       token,
       method: 'PUT',
-      body: JSON.stringify({}),
     }),
 
   // Audit Logs
-  getAuditLogs: (token: string) =>
-    apiCall('/api/v1/admin/audit-logs', { token }),
+  getAuditLogs: (token: string, params?: { page?: number; size?: number }) => {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return apiCall(`/api/v1/admin/audit-logs${query}`, { token });
+  },
 
-  // Admin Management
+  // Admin Management (Super Admin only)
   getAdmins: (token: string) =>
     apiCall('/api/v1/admin/admins', { token }),
 
-  createAdmin: (data: { email: string; password: string }, token: string) =>
-    apiCall('/api/v1/admin/admins', {
+  createAdmin: (data: { 
+    email: string; 
+    fullName: string;
+    phoneNumber: string;
+    password: string;
+    role?: 'ADMIN' | 'SUPER_ADMIN';
+  }, token: string) =>
+    apiCall('/api/v1/admin/create', {
       token,
       method: 'POST',
       body: JSON.stringify(data),

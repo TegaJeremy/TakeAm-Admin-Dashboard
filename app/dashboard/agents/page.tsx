@@ -25,7 +25,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Eye, Check, X } from 'lucide-react';
-import { useState as useStateForAction } from 'react';
 
 export default function AgentsPage() {
   const { token, isLoading } = useAuth();
@@ -42,11 +41,16 @@ export default function AgentsPage() {
 
     const fetchAgents = async () => {
       try {
-        const data = await adminApi.getAgents(token);
-        setAgents(Array.isArray(data) ? data : data.data || []);
-      } catch (error) {
-        console.error('[v0] Error fetching agents:', error);
-        toast.error('Failed to load agents');
+        const response = await adminApi.getAgents(token) as any;
+        
+        // Handle different response formats
+        const agentsData = response?.data || response || [];
+        console.log('[Agents] Fetched:', agentsData);
+        
+        setAgents(Array.isArray(agentsData) ? agentsData : []);
+      } catch (error: any) {
+        console.error('[Agents] Error fetching agents:', error);
+        toast.error(error.message || 'Failed to load agents');
       } finally {
         setAgentsLoading(false);
       }
@@ -60,51 +64,59 @@ export default function AgentsPage() {
     
     setIsSubmitting(true);
     try {
-      await adminApi.approveAgent(selectedAgent.id, token, reason);
-      setAgents(agents.map(a => 
-        a.id === selectedAgent.id 
-          ? { ...a, status: 'ACTIVE' }
-          : a
-      ));
+      await adminApi.approveAgent(selectedAgent.id, token, reason || 'Approved by admin');
+      
+      // Remove from list or refetch
+      setAgents(agents.filter(a => a.id !== selectedAgent.id));
+      
       toast.success('Agent approved successfully');
       setActionType(null);
       setReason('');
       setSelectedAgent(null);
     } catch (error: any) {
-      console.error('[v0] Error approving agent:', error);
-      toast.error(error?.data?.message || 'Failed to approve agent');
+      console.error('[Agents] Error approving agent:', error);
+      toast.error(error?.message || 'Failed to approve agent');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleReject = async () => {
-    if (!selectedAgent || !token) return;
+    if (!selectedAgent || !token || !reason.trim()) return;
     
     setIsSubmitting(true);
     try {
       await adminApi.rejectAgent(selectedAgent.id, token, reason);
+      
+      // Remove from list or update status
       setAgents(agents.map(a => 
         a.id === selectedAgent.id 
-          ? { ...a, status: 'REJECTED' }
+          ? { ...a, status: 'REJECTED', rejectionReason: reason }
           : a
       ));
+      
       toast.success('Agent rejected successfully');
       setActionType(null);
       setReason('');
       setSelectedAgent(null);
     } catch (error: any) {
-      console.error('[v0] Error rejecting agent:', error);
-      toast.error(error?.data?.message || 'Failed to reject agent');
+      console.error('[Agents] Error rejecting agent:', error);
+      toast.error(error?.message || 'Failed to reject agent');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const filteredAgents = agents.filter(agent =>
-    agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    agent.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredAgents = agents.filter(agent => {
+    if (!agent) return false;
+    
+    const matchesSearch = !searchQuery ||
+      agent.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      agent.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      agent.phoneNumber?.includes(searchQuery);
+    
+    return matchesSearch;
+  });
 
   if (agentsLoading) {
     return (
@@ -127,7 +139,7 @@ export default function AgentsPage() {
       {/* Search Bar */}
       <div className="flex gap-4">
         <Input
-          placeholder="Search agents by name or email..."
+          placeholder="Search agents by name, email, or phone..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="bg-input border-border text-foreground placeholder:text-muted-foreground"
@@ -143,7 +155,7 @@ export default function AgentsPage() {
               <TableHead className="text-foreground">Email</TableHead>
               <TableHead className="text-foreground">Phone</TableHead>
               <TableHead className="text-foreground">Market</TableHead>
-              <TableHead className="text-foreground">Traders</TableHead>
+              <TableHead className="text-foreground">Identity</TableHead>
               <TableHead className="text-foreground">Status</TableHead>
               <TableHead className="text-foreground">Actions</TableHead>
             </TableRow>
@@ -152,17 +164,30 @@ export default function AgentsPage() {
             {filteredAgents.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No agents found
+                  {agents.length === 0 ? 'No pending agents' : 'No agents match your search'}
                 </TableCell>
               </TableRow>
             ) : (
               filteredAgents.map((agent) => (
                 <TableRow key={agent.id} className="border-border">
-                  <TableCell className="font-medium text-foreground">{agent.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{agent.email}</TableCell>
-                  <TableCell className="text-muted-foreground">{agent.phone}</TableCell>
-                  <TableCell className="text-muted-foreground">{agent.market}</TableCell>
-                  <TableCell className="text-foreground">{agent.tradersCount}</TableCell>
+                  <TableCell className="font-medium text-foreground">
+                    {agent.fullName || 'N/A'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {agent.email || 'N/A'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {agent.phoneNumber || 'N/A'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {agent.assignedMarketId || 'N/A'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    <div>
+                      <span className="font-medium">{agent.identityType}</span>
+                      <p className="text-xs opacity-75">{agent.identityNumber || 'N/A'}</p>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       agent.status === 'ACTIVE'
@@ -174,7 +199,7 @@ export default function AgentsPage() {
                       {agent.status}
                     </span>
                   </TableCell>
-                  <TableCell className="space-y-2">
+                  <TableCell>
                     <div className="flex gap-2">
                       <Link href={`/dashboard/agents/${agent.id}`}>
                         <Button size="sm" variant="outline" className="gap-1">
@@ -233,9 +258,19 @@ export default function AgentsPage() {
               {actionType === 'approve' ? 'Approve Agent' : 'Reject Agent'}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
-              {actionType === 'approve'
-                ? `You are about to approve ${selectedAgent.name} as a logistics agent.`
-                : `You are about to reject ${selectedAgent.name}'s application.`}
+              <div className="space-y-3 mt-4">
+                <p>
+                  {actionType === 'approve'
+                    ? `You are about to approve ${selectedAgent.fullName} as a logistics agent.`
+                    : `You are about to reject ${selectedAgent.fullName}'s application.`}
+                </p>
+                <div className="p-4 rounded-lg bg-card/50 border border-border space-y-2 text-sm">
+                  <p><strong>Email:</strong> {selectedAgent.email}</p>
+                  <p><strong>Phone:</strong> {selectedAgent.phoneNumber}</p>
+                  <p><strong>Market:</strong> {selectedAgent.assignedMarketId}</p>
+                  <p><strong>Identity:</strong> {selectedAgent.identityType} - {selectedAgent.identityNumber}</p>
+                </div>
+              </div>
             </AlertDialogDescription>
             
             {actionType === 'reject' && (

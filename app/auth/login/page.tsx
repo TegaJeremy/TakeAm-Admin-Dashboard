@@ -67,7 +67,8 @@ export default function LoginPage() {
       });
 
       // Store token and redirect - FIX: use accessToken and user.email
-      login(response.accessToken, response.user.email);
+     // Pass user data to login function
+    login(response.accessToken, response.user.email, response.user);
       toast.success('Login successful!');
       router.push('/dashboard');
     } catch (err: any) {

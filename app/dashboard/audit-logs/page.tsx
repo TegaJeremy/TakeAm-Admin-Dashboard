@@ -34,11 +34,16 @@ export default function AuditLogsPage() {
 
     const fetchLogs = async () => {
       try {
-        const data = await adminApi.getAuditLogs(token);
-        setLogs(Array.isArray(data) ? data : data.data || []);
-      } catch (error) {
-        console.error('[v0] Error fetching audit logs:', error);
-        toast.error('Failed to load audit logs');
+        const response = await adminApi.getAuditLogs(token) as any;
+        
+        // Handle different response formats
+        const logsData = response?.data || response || [];
+        console.log('[AuditLogs] Fetched:', logsData);
+        
+        setLogs(Array.isArray(logsData) ? logsData : []);
+      } catch (error: any) {
+        console.error('[AuditLogs] Error fetching logs:', error);
+        toast.error(error.message || 'Failed to load audit logs');
       } finally {
         setLogsLoading(false);
       }
@@ -48,16 +53,19 @@ export default function AuditLogsPage() {
   }, [token, isLoading]);
 
   const filteredLogs = logs.filter(log => {
-    const matchesSearch = 
-      log.adminEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.action.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!log) return false;
+    
+    const matchesSearch = !searchQuery ||
+      log.adminEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      log.action?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      log.targetType?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesAction = !actionFilter || log.action === actionFilter;
     
     return matchesSearch && matchesAction;
   });
 
-  const uniqueActions = [...new Set(logs.map(log => log.action))];
+  const uniqueActions = [...new Set(logs.map(log => log.action).filter(Boolean))];
 
   if (logsLoading) {
     return (
@@ -80,7 +88,7 @@ export default function AuditLogsPage() {
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4">
         <Input
-          placeholder="Search logs by admin email or action..."
+          placeholder="Search logs by admin email, action, or target..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="bg-input border-border text-foreground placeholder:text-muted-foreground md:flex-1"
@@ -108,26 +116,27 @@ export default function AuditLogsPage() {
               <TableHead className="text-foreground">Admin</TableHead>
               <TableHead className="text-foreground">Action</TableHead>
               <TableHead className="text-foreground">Target</TableHead>
-              <TableHead className="text-foreground">Reason</TableHead>
+              <TableHead className="text-foreground">Details</TableHead>
+              <TableHead className="text-foreground">IP Address</TableHead>
               <TableHead className="text-foreground">Timestamp</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredLogs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  No audit logs found
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  {logs.length === 0 ? 'No audit logs yet' : 'No logs match your filters'}
                 </TableCell>
               </TableRow>
             ) : (
               filteredLogs.map((log) => (
                 <TableRow key={log.id} className="border-border hover:bg-card/50">
                   <TableCell className="font-medium text-foreground text-sm">
-                    {log.adminEmail}
+                    {log.adminEmail || 'N/A'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     <span className="px-2 py-1 rounded bg-blue-500/10 text-blue-500 text-xs font-medium">
-                      {log.action}
+                      {log.action || 'UNKNOWN'}
                     </span>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
@@ -135,11 +144,24 @@ export default function AuditLogsPage() {
                       ? `${log.targetType}#${log.targetId.substring(0, 8)}`
                       : 'N/A'}
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm max-w-xs truncate">
-                    {log.reason || '-'}
+                  <TableCell className="text-muted-foreground text-sm max-w-xs">
+                    <div className="truncate" title={log.details || '-'}>
+                      {log.details || '-'}
+                    </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {new Date(log.createdAt).toLocaleString()}
+                  <TableCell className="text-muted-foreground text-xs">
+                    {log.ipAddress || 'N/A'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                    {log.createdAt 
+                      ? new Date(log.createdAt).toLocaleString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
+                      : 'N/A'}
                   </TableCell>
                 </TableRow>
               ))
@@ -147,6 +169,13 @@ export default function AuditLogsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination info */}
+      {logs.length > 0 && (
+        <div className="text-sm text-muted-foreground text-center">
+          Showing {filteredLogs.length} of {logs.length} log{logs.length !== 1 ? 's' : ''}
+        </div>
+      )}
     </div>
   );
 }
