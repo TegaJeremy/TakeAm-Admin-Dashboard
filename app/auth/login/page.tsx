@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth-context';
 import { apiCall } from '@/lib/api';
 import { toast } from 'sonner';
 import { Leaf, AlertCircle } from 'lucide-react';
+import gsap from 'gsap';
 
 interface LoginResponse {
   accessToken: string;
@@ -35,13 +36,38 @@ export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
 
+  useEffect(() => {
+  // Simple clean fade only (no movement)
+  gsap.from('.branding-panel', {
+    opacity: 0,
+    duration: 0.8,
+    ease: 'power2.out'
+  });
+
+  gsap.from('.login-panel', {
+    opacity: 0,
+    duration: 0.8,
+    delay: 0.1,
+    ease: 'power2.out'
+  });
+
+  gsap.from('.form-item', {
+    opacity: 0,
+    duration: 0.5,
+    stagger: 0.08,
+    delay: 0.2,
+    ease: 'power2.out'
+  });
+
+}, []);
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
     try {
-      // Validate inputs
       if (!email || !password) {
         setError('Please enter both email and password');
         setIsLoading(false);
@@ -54,30 +80,25 @@ export default function LoginPage() {
         return;
       }
 
-      // Call login API - FIX: use "identifier" instead of "email"
       const response = await apiCall<LoginResponse>('/api/v1/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          identifier: email,  
-          password 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: email,
+          password
         }),
       });
 
-      // Store token and redirect - FIX: use accessToken and user.email
-     // Pass user data to login function
-    login(response.accessToken, response.user.email, response.user);
+      login(response.accessToken, response.user.email, response.user);
       toast.success('Login successful!');
       router.push('/dashboard');
+
     } catch (err: any) {
-      console.error('[LOGIN] Login error:', err);
-      
-      const errorMessage = err?.data?.message || 
-                          err?.message || 
-                          'Login failed. Please check your credentials and try again.';
-      
+      const errorMessage =
+        err?.data?.message ||
+        err?.message ||
+        'Login failed. Please check your credentials and try again.';
+
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -86,127 +107,142 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-b from-background to-background/80">
-      {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 lg:flex-col lg:justify-between lg:p-12 border-r border-border">
-        <Link href="/" className="flex items-center gap-2 group">
-          <Leaf className="w-8 h-8 text-accent group-hover:scale-110 transition-transform" />
-          <span className="text-2xl font-bold text-foreground">Take-am</span>
+  <div className="relative flex min-h-screen bg-[#F6F4EF]">
+
+    {/* ================= LEFT PANEL ================= */}
+    <div className="branding-panel relative hidden lg:flex lg:w-1/2 overflow-hidden">
+
+      {/* Static Market Image */}
+      <img
+         src="https://www.shutterstock.com/shutterstock/photos/2631288983/display_1500/stock-photo-close-up-local-african-open-space-market-with-stalls-of-food-items-for-sales-2631288983.jpg"
+        alt="African food market"
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+
+      {/* Solid Overlay (NOT gradient) */}
+      <div className="absolute inset-0 bg-[#0F3D2E]/80"></div>
+
+      <div className="relative z-10 flex flex-col justify-between h-full p-16 text-white">
+
+        <Link href="/" className="flex items-center gap-3">
+          <Leaf className="w-9 h-9 text-[#E67E22]" />
+          <span className="text-2xl font-semibold tracking-wide">
+            Take-am
+          </span>
         </Link>
 
-        <div className="space-y-6">
+        <div className="space-y-10 max-w-md">
+
           <div>
-            <h2 className="text-4xl font-bold text-foreground mb-4">
+            <h2 className="text-4xl font-light mb-6 tracking-wide">
               Welcome Back
             </h2>
-            <p className="text-lg text-muted-foreground leading-relaxed">
+
+            <p className="text-lg text-white/90 leading-relaxed">
               Access the Take-am admin dashboard to manage your food waste recovery operations.
             </p>
           </div>
 
-          <div className="space-y-4">
-            <div className="flex gap-3">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center">
-                <span className="text-accent text-sm font-bold">✓</span>
+          <div className="space-y-6">
+            {[
+              "Real-time operational analytics",
+              "Comprehensive user management",
+              "Secure payment processing"
+            ].map((text, i) => (
+              <div key={i} className="flex items-center gap-4">
+                <div className="w-7 h-7 rounded-full bg-[#E67E22]/20 flex items-center justify-center">
+                  <span className="text-[#E67E22] text-sm font-bold">✓</span>
+                </div>
+                <p className="text-white/95 text-base">{text}</p>
               </div>
-              <p className="text-muted-foreground">Real-time operational analytics</p>
-            </div>
-            <div className="flex gap-3">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center">
-                <span className="text-accent text-sm font-bold">✓</span>
-              </div>
-              <p className="text-muted-foreground">Comprehensive user management</p>
-            </div>
-            <div className="flex gap-3">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center">
-                <span className="text-accent text-sm font-bold">✓</span>
-              </div>
-              <p className="text-muted-foreground">Secure payment processing</p>
-            </div>
+            ))}
           </div>
+
         </div>
 
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-white/60">
           &copy; 2024 Take-am. All rights reserved.
         </p>
-      </div>
 
-      {/* Right Side - Login Form */}
-      <div className="flex w-full lg:w-1/2 flex-col justify-center p-6 sm:p-12">
-        <div className="w-full max-w-sm mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">Admin Login</h1>
-            <p className="text-muted-foreground">
-              Sign in to your admin account to continue
-            </p>
-          </div>
-
-          {error && (
-            <div className="mb-6 p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex gap-3">
-              <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-destructive">{error}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
-                Email Address
-              </label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@takeam.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
-                className="bg-input border-border text-foreground placeholder:text-muted-foreground"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
-                Password
-              </label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-                className="bg-input border-border text-foreground placeholder:text-muted-foreground"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-primary hover:bg-blue-600"
-              size="lg"
-            >
-              {isLoading ? 'Signing in...' : 'Sign In'}
-            </Button>
-          </form>
-
-          <div className="mt-8 p-4 rounded-lg bg-card border border-border">
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              <strong>Demo Credentials:</strong><br />
-              Email: admin@takeam.com<br />
-              Password: Demo@123456
-            </p>
-          </div>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              Need help?{' '}
-              <Link href="/contact" className="text-accent hover:text-blue-400 transition-colors">
-                Contact support
-              </Link>
-            </p>
-          </div>
-        </div>
       </div>
     </div>
-  );
+
+    {/* ================= RIGHT PANEL ================= */}
+    <div className="login-panel flex w-full lg:w-1/2 flex-col justify-center p-10 sm:p-16 bg-[#F6F4EF]">
+
+      <div className="w-full max-w-md mx-auto">
+
+        <div className="mb-10 form-item text-center">
+          <h1 className="text-3xl font-semibold text-[#0F3D2E] mb-3">
+            Admin Login
+          </h1>
+          <p className="text-[#6B7D6E]">
+            Sign in to your admin account to continue
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 flex gap-3 form-item">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-7">
+
+          <div className="form-item">
+            <label className="block text-sm font-medium text-[#0F3D2E] mb-2">
+              Email Address
+            </label>
+            <Input
+              type="email"
+              placeholder="admin@takeam.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={isLoading}
+              className="bg-white border-[#E5E1D8] text-[#0F3D2E] placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-[#0F3D2E]"
+            />
+          </div>
+
+          <div className="form-item">
+            <label className="block text-sm font-medium text-[#0F3D2E] mb-2">
+              Password
+            </label>
+            <Input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
+              className="bg-white border-[#E5E1D8] text-[#0F3D2E] placeholder:text-gray-400 focus:border-[#0F3D2E] focus:ring-[#0F3D2E]"
+            />
+          </div>
+
+          <Button
+            type="submit"
+            disabled={isLoading}
+            size="lg"
+            className="w-full bg-[#0F3D2E] hover:bg-[#0c3024] text-white flex items-center justify-center"
+          >
+            {isLoading ? 'Signing in...' : 'Sign In'}
+          </Button>
+
+        </form>
+
+        <div className="mt-8 text-center form-item">
+          <p className="text-sm text-[#6B7D6E]">
+            Need help?{' '}
+            <Link href="/contact" className="text-[#0F3D2E] hover:underline font-medium">
+              Contact support
+            </Link>
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+);
+
+
 }

@@ -1,62 +1,161 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
+import { gsap } from 'gsap';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Leaf, Users, TrendingUp, Truck, ShieldCheck, BarChart3 } from 'lucide-react';
+import {
+  ArrowRight,
+  Leaf,
+  Users,
+  TrendingUp,
+  Truck,
+  ShieldCheck,
+  BarChart3,
+} from 'lucide-react';
 
 export default function LandingPage() {
+  const heroRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      const headlines = [
+        "Turning Food Waste into Structured Income",
+        "Building Lagos' Food Recovery Infrastructure",
+        "Reducing Waste. Increasing Market Stability."
+      ];
+
+      const subtexts = [
+        "Connecting traders, agents, buyers and processors in one verified ecosystem.",
+        "Deploying on-ground verification with digital coordination tools.",
+        "Creating structured redistribution channels for excess produce."
+      ];
+
+      const images = gsap.utils.toArray<HTMLElement>(".hero-image");
+      const headline = document.querySelector(".hero-headline");
+      const subtext = document.querySelector(".hero-subtext");
+
+      let index = 0;
+
+      gsap.set(images, { opacity: 0, scale: 1.1 });
+      gsap.set(images[0], { opacity: 1, scale: 1 });
+
+      const timeline = gsap.timeline({
+        repeat: -1,
+        repeatDelay: 2,
+      });
+
+      timeline.to({}, { duration: 4 }).add(() => {
+        index = (index + 1) % images.length;
+
+        gsap.to(images, { opacity: 0, duration: 1 });
+        gsap.to(images[index], {
+          opacity: 1,
+          scale: 1,
+          duration: 1.5,
+          ease: "power2.out"
+        });
+
+        gsap.to([headline, subtext], {
+          opacity: 0,
+          y: 30,
+          duration: 0.6,
+          onComplete: () => {
+            if (headline) headline.textContent = headlines[index];
+            if (subtext) subtext.textContent = subtexts[index];
+
+            gsap.to([headline, subtext], {
+              opacity: 1,
+              y: 0,
+              duration: 0.8,
+              ease: "power3.out"
+            });
+          }
+        });
+      });
+
+      gsap.from(".hero-content", {
+        y: 40,
+        opacity: 0,
+        duration: 1.2,
+        ease: "power3.out"
+      });
+
+    }, heroRef);
+
+    return () => ctx.revert();
+  }, []);
+
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-background to-background/80">
-      {/* Navigation */}
-      <nav className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <div className="flex flex-col min-h-screen bg-[#F6F4EF] text-[#0F3D2E]" ref={heroRef}>
+
+      {/* NAVIGATION */}
+      <nav className="sticky top-0 z-50 border-b border-[#E5E1D8] bg-[#F6F4EF]/80 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Leaf className="w-8 h-8 text-accent" />
-            <span className="text-xl font-bold text-foreground">Take-am</span>
+            <Leaf className="w-8 h-8 text-[#E67E22]" />
+            <span className="text-xl font-bold tracking-tight">
+              TakeAm
+            </span>
           </div>
+
           <div className="hidden md:flex items-center gap-8">
-            <Link href="/about" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link href="/about" className="text-sm text-[#6B7D6E] hover:text-[#0F3D2E] transition-colors">
               About
             </Link>
-            <Link href="/how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link href="/how-it-works" className="text-sm text-[#6B7D6E] hover:text-[#0F3D2E] transition-colors">
               How It Works
             </Link>
-            <Link href="/contact" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link href="/contact" className="text-sm text-[#6B7D6E] hover:text-[#0F3D2E] transition-colors">
               Contact
             </Link>
             <Link href="/auth/login">
-              <Button size="sm" variant="outline">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-[#0F3D2E] text-[#0F3D2E] hover:bg-[#0F3D2E] hover:text-white"
+              >
                 Admin Login
-              </Button>
-            </Link>
-          </div>
-          <div className="md:hidden">
-            <Link href="/auth/login">
-              <Button size="sm" variant="outline">
-                Login
               </Button>
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="flex-1 px-4 sm:px-6 lg:px-8 py-20 md:py-32">
-        <div className="max-w-4xl mx-auto text-center space-y-6">
-          <h1 className="text-4xl md:text-6xl font-bold text-foreground leading-tight">
-            Turning Food Waste into <span className="text-accent">Opportunity</span>
+      {/* HERO */}
+      <section className="relative h-[90vh] w-full overflow-hidden">
+
+        <div className="absolute inset-0">
+          <img src="https://images.unsplash.com/photo-1500937386664-56d1dfef3854" className="hero-image absolute inset-0 w-full h-full object-cover" />
+          <img src="https://images.unsplash.com/photo-1470115636492-6d2b56f9146d" className="hero-image absolute inset-0 w-full h-full object-cover" />
+          <img src="https://images.unsplash.com/photo-1464226184884-fa280b87c399" className="hero-image absolute inset-0 w-full h-full object-cover" />
+        </div>
+
+        <div className="absolute inset-0 bg-[#0F3D2E]/50" />
+
+        <div className="hero-content relative z-10 flex flex-col items-center justify-center h-full text-center text-white px-6">
+          <div className="w-24 h-[2px] bg-[#E67E22] mb-6"></div>
+
+          <h1 className="hero-headline text-4xl md:text-6xl font-light tracking-wide max-w-4xl leading-tight">
+            Turning Food Waste into Structured Income
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Take-am connects food traders with logistics partners and buyers, recovering valuable food waste across Lagos while creating economic opportunities.
+
+          <div className="w-24 h-[2px] bg-[#E67E22] mt-6"></div>
+
+          <p className="hero-subtext mt-8 max-w-2xl text-lg text-white/90">
+            Connecting traders, agents, buyers and processors in one verified ecosystem.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-10">
             <Link href="/auth/login">
-              <Button size="lg" className="bg-primary hover:bg-blue-600">
-                Access Admin Dashboard <ArrowRight className="ml-2 w-4 h-4" />
+              <Button size="lg" className="bg-[#E67E22] hover:bg-[#cf6f1f] text-white shadow-md">
+                Access Admin Dashboard
+                <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </Link>
+
             <Link href="/how-it-works">
-              <Button size="lg" variant="outline">
+              <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-[#0F3D2E]">
                 Learn More
               </Button>
             </Link>
@@ -64,138 +163,97 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="px-4 sm:px-6 lg:px-8 py-16 border-t border-border">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold text-center text-foreground mb-12">
-            Platform Features
+      {/* MISSION */}
+      <section className="px-6 py-24 border-t border-[#E5E1D8] bg-[#F6F4EF] text-center">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <h2 className="text-4xl font-bold">
+            A Structured Recovery System for Lagos Markets
           </h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            {/* Feature 1 */}
-            <div className="p-6 rounded-lg border border-border bg-card hover:bg-card/50 transition-colors">
-              <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center mb-4">
-                <Users className="w-6 h-6 text-accent" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Network Management</h3>
-              <p className="text-muted-foreground">
-                Manage traders, agents, and buyers all in one platform with real-time status tracking.
-              </p>
-            </div>
+          <p className="text-lg text-[#6B7D6E] leading-relaxed">
+            TakeAm deploys trained agents to verify, grade, weigh, and record excess produce.
+            Every batch is transparently classified and redistributed to buyers,
+            feed processors, or compost partners — reducing loss and increasing income stability.
+          </p>
+        </div>
+      </section>
 
-            {/* Feature 2 */}
-            <div className="p-6 rounded-lg border border-border bg-card hover:bg-card/50 transition-colors">
-              <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center mb-4">
-                <TrendingUp className="w-6 h-6 text-blue-500" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Analytics & Insights</h3>
-              <p className="text-muted-foreground">
-                Track recovery metrics, payment flows, and operational efficiency with detailed dashboards.
-              </p>
-            </div>
+      {/* FEATURES */}
+      <section className="px-6 py-24 border-t border-[#E5E1D8] bg-[#FBF9F3]">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-4xl font-bold text-center mb-16">
+            Platform Capabilities
+          </h2>
 
-            {/* Feature 3 */}
-            <div className="p-6 rounded-lg border border-border bg-card hover:bg-card/50 transition-colors">
-              <div className="w-12 h-12 rounded-lg bg-emerald-500/10 flex items-center justify-center mb-4">
-                <ShieldCheck className="w-6 h-6 text-emerald-500" />
+          <div className="grid md:grid-cols-3 gap-10">
+            {[
+              {
+                icon: <Users className="w-6 h-6 text-[#E67E22]" />,
+                title: 'Trader & Agent Management',
+                desc: 'Manage market traders and recovery agents with structured verification workflows.',
+              },
+              {
+                icon: <Truck className="w-6 h-6 text-[#E67E22]" />,
+                title: 'Logistics Coordination',
+                desc: 'Coordinate pickup, redistribution, and delivery across markets.',
+              },
+              {
+                icon: <TrendingUp className="w-6 h-6 text-[#E67E22]" />,
+                title: 'Recovery Analytics',
+                desc: 'Track graded volumes, recovery rates, and operational efficiency.',
+              },
+              {
+                icon: <BarChart3 className="w-6 h-6 text-[#E67E22]" />,
+                title: 'Transparent Financial Tracking',
+                desc: 'Monitor trader payments and redistribution revenue clearly.',
+              },
+              {
+                icon: <ShieldCheck className="w-6 h-6 text-[#E67E22]" />,
+                title: 'Operational Accountability',
+                desc: 'Every grading action and payment record is documented.',
+              },
+              {
+                icon: <Leaf className="w-6 h-6 text-[#E67E22]" />,
+                title: 'Circular Food Recovery',
+                desc: 'Redirect lower-grade produce to feed and compost partners.',
+              },
+            ].map((feature, i) => (
+              <div key={i} className="p-8 rounded-xl border border-[#E5E1D8] bg-white hover:shadow-lg transition-all duration-300">
+                <div className="w-12 h-12 rounded-lg bg-[#0F3D2E]/10 flex items-center justify-center mb-6">
+                  {feature.icon}
+                </div>
+                <h3 className="text-lg font-semibold mb-3">{feature.title}</h3>
+                <p className="text-[#6B7D6E] leading-relaxed">{feature.desc}</p>
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Secure & Reliable</h3>
-              <p className="text-muted-foreground">
-                Enterprise-grade security with audit logs and role-based access control for all operations.
-              </p>
-            </div>
-
-            {/* Feature 4 */}
-            <div className="p-6 rounded-lg border border-border bg-card hover:bg-card/50 transition-colors">
-              <div className="w-12 h-12 rounded-lg bg-amber-500/10 flex items-center justify-center mb-4">
-                <Truck className="w-6 h-6 text-amber-500" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Logistics Coordination</h3>
-              <p className="text-muted-foreground">
-                Manage pickup requests, delivery tracking, and agent assignments with ease.
-              </p>
-            </div>
-
-            {/* Feature 5 */}
-            <div className="p-6 rounded-lg border border-border bg-card hover:bg-card/50 transition-colors">
-              <div className="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center mb-4">
-                <BarChart3 className="w-6 h-6 text-purple-500" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Financial Management</h3>
-              <p className="text-muted-foreground">
-                Track payments, manage grading systems, and monitor financial flows transparently.
-              </p>
-            </div>
-
-            {/* Feature 6 */}
-            <div className="p-6 rounded-lg border border-border bg-card hover:bg-card/50 transition-colors">
-              <div className="w-12 h-12 rounded-lg bg-pink-500/10 flex items-center justify-center mb-4">
-                <Leaf className="w-6 h-6 text-pink-500" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Environmental Impact</h3>
-              <p className="text-muted-foreground">
-                Track food recovery metrics and measure your positive environmental impact daily.
-              </p>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="px-4 sm:px-6 lg:px-8 py-16 border-t border-border">
-        <div className="max-w-4xl mx-auto text-center space-y-6">
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-            Ready to optimize your operations?
+      {/* CTA */}
+      <section className="px-6 py-24 border-t border-[#E5E1D8] text-center bg-[#F6F4EF]">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <h2 className="text-4xl font-bold">
+            Strengthening Market Stability Through Recovery
           </h2>
-          <p className="text-lg text-muted-foreground">
-            Access the Take-am admin dashboard to manage all aspects of your food waste recovery network.
+          <p className="text-lg text-[#6B7D6E]">
+            Access the TakeAm dashboard to coordinate recovery operations,
+            manage agents, and track real impact.
           </p>
           <Link href="/auth/login">
-            <Button size="lg" className="bg-primary hover:bg-blue-600">
+            <Button size="lg" className="bg-[#E67E22] hover:bg-[#cf6f1f] text-white">
               Login to Dashboard
             </Button>
           </Link>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-border bg-card/50 px-4 sm:px-6 lg:px-8 py-12 mt-auto">
-        <div className="max-w-6xl mx-auto grid md:grid-cols-4 gap-8 mb-8">
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <Leaf className="w-6 h-6 text-accent" />
-              <span className="font-bold text-foreground">Take-am</span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Transforming food waste recovery for Lagos.
-            </p>
-          </div>
-          <div>
-            <h4 className="font-semibold text-foreground mb-4">Product</h4>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link href="/how-it-works" className="hover:text-foreground transition-colors">How It Works</Link></li>
-              <li><Link href="/about" className="hover:text-foreground transition-colors">About</Link></li>
-              <li><Link href="/contact" className="hover:text-foreground transition-colors">Contact</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-semibold text-foreground mb-4">Legal</h4>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Terms of Service</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-semibold text-foreground mb-4">Contact</h4>
-            <p className="text-sm text-muted-foreground">
-              Email: info@takeam.com<br />
-              Lagos, Nigeria
-            </p>
-          </div>
-        </div>
-        <div className="border-t border-border pt-8 text-center text-sm text-muted-foreground">
-          <p>&copy; 2024 Take-am. All rights reserved.</p>
+      {/* FOOTER */}
+      <footer className="border-t border-[#E5E1D8] bg-[#FBF9F3] px-6 py-12 mt-auto">
+        <div className="max-w-6xl mx-auto text-center text-sm text-[#6B7D6E]">
+          © 2024 TakeAm. Lagos Food Recovery Infrastructure.
         </div>
       </footer>
+
     </div>
   );
 }

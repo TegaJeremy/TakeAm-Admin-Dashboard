@@ -10,7 +10,7 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: 'Take-am Admin',
   description: 'Food waste recovery platform administration',
-  generator: 'v0.app',
+  generator: 'TakeAm Application',
   icons: {
     icon: [
       {

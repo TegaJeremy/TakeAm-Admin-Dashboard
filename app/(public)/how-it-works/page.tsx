@@ -1,17 +1,93 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, CheckCircle } from 'lucide-react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 
 export default function HowItWorksPage() {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+
+      // Page fade in
+      gsap.from('.page', {
+        opacity: 0,
+        duration: 0.8,
+        ease: 'power2.out'
+      });
+
+      // Scroll progress bar
+      gsap.to('.progress-bar', {
+        scaleX: 1,
+        ease: 'none',
+        scrollTrigger: {
+          trigger: containerRef.current,
+          start: 'top top',
+          end: 'bottom bottom',
+          scrub: true
+        }
+      });
+
+      // Section animation
+      gsap.utils.toArray<HTMLElement>('.fade-section').forEach((section) => {
+        gsap.from(section.querySelectorAll('.animate-item'), {
+          y: 40,
+          opacity: 0,
+          duration: 0.8,
+          stagger: 0.15,
+          ease: 'power3.out',
+          scrollTrigger: {
+            trigger: section,
+            start: 'top 80%',
+          }
+        });
+      });
+
+    }, containerRef);
+
+    return () => ctx.revert();
+  }, []);
+
+  const StepCard = ({ step, title, description, color }: any) => (
+    <div className="animate-item group relative pl-12">
+      <div className={`absolute left-0 top-1 flex items-center justify-center w-8 h-8 rounded-full ${color} text-white text-sm font-semibold`}>
+        {step}
+      </div>
+      <div className="p-6 border rounded-2xl transition-all duration-300 hover:shadow-xl hover:-translate-y-1 bg-white">
+        <h3 className="text-lg font-semibold mb-2">{title}</h3>
+        <p className="text-gray-600 text-sm leading-relaxed">{description}</p>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-background to-background/80">
-      {/* Back Button */}
-      <div className="px-4 sm:px-6 lg:px-8 py-6 border-b border-border">
-        <div className="max-w-4xl mx-auto">
+    <div ref={containerRef} className="page relative flex flex-col min-h-screen bg-white text-black">
+
+      {/* Scroll Progress */}
+      <div className="fixed top-0 left-0 w-full h-1 bg-gray-200 z-50">
+        <div className="progress-bar origin-left scale-x-0 h-full bg-black"></div>
+      </div>
+
+      {/* HEADER with Background Image */}
+      <div
+        className="relative px-6 py-6 border-b bg-cover bg-center"
+        style={{
+          backgroundImage:
+            "url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=2070&q=80')"
+        }}
+      >
+        {/* Light overlay so text stays visible */}
+        <div className="absolute inset-0 bg-white/85"></div>
+
+        <div className="relative max-w-6xl mx-auto">
           <Link href="/">
-            <Button variant="ghost" size="sm" className="gap-2">
+            <Button variant="ghost" size="sm" className="gap-2 text-black">
               <ArrowLeft className="w-4 h-4" />
               Back to Home
             </Button>
@@ -19,184 +95,75 @@ export default function HowItWorksPage() {
         </div>
       </div>
 
-      {/* Content */}
-      <main className="flex-1 px-4 sm:px-6 lg:px-8 py-16">
-        <div className="max-w-4xl mx-auto space-y-16">
-          <div>
-            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-6">How Take-am Works</h1>
-            <p className="text-lg text-muted-foreground">
-              A comprehensive platform connecting traders with food waste to buyers and logistics providers in Lagos.
+      <main className="flex-1 px-6 py-24">
+        <div className="max-w-6xl mx-auto space-y-28">
+
+          {/* HERO TEXT (Just text now, no hero section) */}
+          <section className="fade-section space-y-6">
+            <h1 className="animate-item text-5xl font-bold">
+              How Take-am Works
+            </h1>
+            <p className="animate-item text-xl text-gray-600 max-w-3xl">
+              A structured ecosystem connecting traders, logistics agents,
+              and buyers — powered by transparency and technology.
             </p>
-          </div>
+          </section>
 
-          {/* For Traders Section */}
-          <section>
-            <h2 className="text-2xl font-bold text-foreground mb-8">For Traders</h2>
-            <div className="space-y-4">
-              {[
-                {
-                  step: 1,
-                  title: "Register Your Business",
-                  description: "Create an account and register your trading business on the Take-am platform. Verify your identity and business details."
-                },
-                {
-                  step: 2,
-                  title: "Post Your Inventory",
-                  description: "List available food items with quantities, quality grade (A, B, C, D), and pricing. Update inventory as stock changes."
-                },
-                {
-                  step: 3,
-                  title: "Receive Requests",
-                  description: "Get pickup requests from assigned agents or direct buyers interested in your food items."
-                },
-                {
-                  step: 4,
-                  title: "Arrange Pickup",
-                  description: "Coordinate with logistics partners or buyers to arrange convenient pickup times and delivery."
-                },
-                {
-                  step: 5,
-                  title: "Get Paid",
-                  description: "Receive payment through your verified bank account after items are graded and delivered."
-                }
-              ].map((item) => (
-                <div key={item.step} className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-accent/10">
-                      <span className="text-accent font-semibold">{item.step}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground mb-1">{item.title}</h3>
-                    <p className="text-muted-foreground">{item.description}</p>
-                  </div>
-                </div>
-              ))}
+          {/* Traders */}
+          <section className="fade-section space-y-10">
+            <h2 className="animate-item text-3xl font-semibold">For Traders</h2>
+            <div className="space-y-8">
+              <StepCard step={1} title="Register Your Business" description="Create and verify your trading business account securely." color="bg-black" />
+              <StepCard step={2} title="Post Inventory" description="Upload available stock with grading and pricing." color="bg-black" />
+              <StepCard step={3} title="Receive Requests" description="Buyers and agents connect with you instantly." color="bg-black" />
+              <StepCard step={4} title="Arrange Pickup" description="Coordinate convenient pickup times." color="bg-black" />
+              <StepCard step={5} title="Get Paid" description="Secure payments processed after grading." color="bg-black" />
             </div>
           </section>
 
-          {/* For Agents Section */}
-          <section>
-            <h2 className="text-2xl font-bold text-foreground mb-8">For Logistics Agents</h2>
-            <div className="space-y-4">
-              {[
-                {
-                  step: 1,
-                  title: "Get Certified",
-                  description: "Apply as a logistics agent with proper identity verification and business documentation."
-                },
-                {
-                  step: 2,
-                  title: "Manage Territory",
-                  description: "You're assigned a market area to manage traders and oversee pickup requests in your zone."
-                },
-                {
-                  step: 3,
-                  title: "Process Requests",
-                  description: "View and manage trader pickup requests, coordinate logistics, and track deliveries."
-                },
-                {
-                  step: 4,
-                  title: "Grade & Report",
-                  description: "Inspect and grade food items upon delivery, report findings on the platform."
-                },
-                {
-                  step: 5,
-                  title: "Earn Commissions",
-                  description: "Earn fixed commissions on each successful pickup and delivery you facilitate."
-                }
-              ].map((item) => (
-                <div key={item.step} className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-500/10">
-                      <span className="text-blue-500 font-semibold">{item.step}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground mb-1">{item.title}</h3>
-                    <p className="text-muted-foreground">{item.description}</p>
-                  </div>
-                </div>
-              ))}
+          {/* Logistics */}
+          <section className="fade-section space-y-10">
+            <h2 className="animate-item text-3xl font-semibold">For Logistics Agents</h2>
+            <div className="space-y-8">
+              <StepCard step={1} title="Get Certified" description="Complete identity and compliance verification." color="bg-blue-600" />
+              <StepCard step={2} title="Manage Territory" description="Oversee your assigned market zone." color="bg-blue-600" />
+              <StepCard step={3} title="Process Requests" description="Handle pickups and deliveries efficiently." color="bg-blue-600" />
+              <StepCard step={4} title="Grade & Report" description="Inspect and submit grading reports digitally." color="bg-blue-600" />
+              <StepCard step={5} title="Earn Commissions" description="Receive commissions for completed transactions." color="bg-blue-600" />
             </div>
           </section>
 
-          {/* For Buyers Section */}
-          <section>
-            <h2 className="text-2xl font-bold text-foreground mb-8">For Buyers</h2>
-            <div className="space-y-4">
-              {[
-                {
-                  step: 1,
-                  title: "Browse Inventory",
-                  description: "Search and browse food items available from traders across Lagos markets."
-                },
-                {
-                  step: 2,
-                  title: "Check Quality & Price",
-                  description: "View quality grades, photos, availability, and pricing for all items."
-                },
-                {
-                  step: 3,
-                  title: "Place Order",
-                  description: "Select items and quantities, place your order through the platform."
-                },
-                {
-                  step: 4,
-                  title: "Arrange Delivery",
-                  description: "Coordinate pickup time or arrange delivery through our logistics partners."
-                },
-                {
-                  step: 5,
-                  title: "Receive & Pay",
-                  description: "Receive your items and pay securely through the platform. Receive invoice and receipt."
-                }
-              ].map((item) => (
-                <div key={item.step} className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-emerald-500/10">
-                      <span className="text-emerald-500 font-semibold">{item.step}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground mb-1">{item.title}</h3>
-                    <p className="text-muted-foreground">{item.description}</p>
-                  </div>
-                </div>
-              ))}
+          {/* Buyers */}
+          <section className="fade-section space-y-10">
+            <h2 className="animate-item text-3xl font-semibold">For Buyers</h2>
+            <div className="space-y-8">
+              <StepCard step={1} title="Browse Inventory" description="Discover affordable stock in real time." color="bg-emerald-600" />
+              <StepCard step={2} title="Check Quality & Price" description="Review grading, pricing, and availability." color="bg-emerald-600" />
+              <StepCard step={3} title="Place Order" description="Select quantities and confirm purchase." color="bg-emerald-600" />
+              <StepCard step={4} title="Arrange Delivery" description="Choose pickup or delivery options." color="bg-emerald-600" />
+              <StepCard step={5} title="Receive & Pay" description="Secure digital payments with invoices." color="bg-emerald-600" />
             </div>
           </section>
 
-          {/* Key Features */}
-          <section className="border-t border-border pt-12">
-            <h2 className="text-2xl font-bold text-foreground mb-8">Key Platform Features</h2>
-            <div className="grid md:grid-cols-2 gap-6">
-              {[
-                "Real-time inventory updates",
-                "Secure payment processing",
-                "Quality grading system",
-                "Logistics coordination",
-                "Audit trail for transparency",
-                "Mobile-friendly interface",
-                "Analytics dashboard",
-                "Support team assistance"
-              ].map((feature) => (
-                <div key={feature} className="flex gap-3">
-                  <CheckCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
-                  <span className="text-muted-foreground">{feature}</span>
-                </div>
-              ))}
-            </div>
-          </section>
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border bg-card/50 px-4 sm:px-6 lg:px-8 py-8 mt-auto">
-        <div className="max-w-4xl mx-auto text-center text-sm text-muted-foreground">
-          <p>&copy; 2024 Take-am. All rights reserved.</p>
+      {/* FOOTER with Background Image */}
+      <footer
+        className="relative border-t px-6 py-8 text-center bg-cover bg-center"
+        style={{
+          backgroundImage:
+            "url('https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=2070&q=80')"
+        }}
+      >
+        {/* Light overlay for readability */}
+        <div className="absolute inset-0 bg-white/90"></div>
+
+        <div className="relative text-sm text-gray-700">
+          © 2024 Take-am. All rights reserved.
         </div>
       </footer>
+
     </div>
   );
 }
