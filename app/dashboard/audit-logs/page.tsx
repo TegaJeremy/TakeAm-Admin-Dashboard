@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { adminApi } from '@/lib/api';
-import { AuditLog } from '@/lib/types';
 import { toast } from 'sonner';
 import {
   Table,
@@ -22,12 +21,25 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+interface AuditLog {
+  id: string;
+  adminId: string;
+  adminEmail: string;
+  action: string;
+  targetUserId?: string;
+  targetUserEmail?: string;
+  reason?: string;
+  notes?: string;
+  ipAddress?: string;
+  createdAt: string;
+}
+
 export default function AuditLogsPage() {
   const { token, isLoading } = useAuth();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [actionFilter, setActionFilter] = useState('');
+  const [actionFilter, setActionFilter] = useState('ALL');
 
   useEffect(() => {
     if (!token || isLoading) return;
@@ -35,12 +47,16 @@ export default function AuditLogsPage() {
     const fetchLogs = async () => {
       try {
         const response = await adminApi.getAuditLogs(token) as any;
-        
-        // Handle different response formats
-        const logsData = response?.data || response || [];
+
+        // Backend returns Page<AdminAuditLog> — pull out .content
+        const logsData =
+          response?.content ||
+          response?.data?.content ||
+          (Array.isArray(response?.data) ? response.data : null) ||
+          (Array.isArray(response) ? response : []);
+
         console.log('[AuditLogs] Fetched:', logsData);
-        
-        setLogs(Array.isArray(logsData) ? logsData : []);
+        setLogs(logsData);
       } catch (error: any) {
         console.error('[AuditLogs] Error fetching logs:', error);
         toast.error(error.message || 'Failed to load audit logs');
@@ -54,18 +70,28 @@ export default function AuditLogsPage() {
 
   const filteredLogs = logs.filter(log => {
     if (!log) return false;
-    
-    const matchesSearch = !searchQuery ||
+
+    const matchesSearch =
+      !searchQuery ||
       log.adminEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       log.action?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.targetType?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesAction = !actionFilter || log.action === actionFilter;
-    
+      log.targetUserEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      log.reason?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesAction = actionFilter === 'ALL' || log.action === actionFilter;
+
     return matchesSearch && matchesAction;
   });
 
   const uniqueActions = [...new Set(logs.map(log => log.action).filter(Boolean))];
+
+  const getActionBadgeColor = (action: string) => {
+    if (action?.includes('APPROVE')) return 'bg-emerald-500/10 text-emerald-500';
+    if (action?.includes('REJECT') || action?.includes('BAN')) return 'bg-red-500/10 text-red-500';
+    if (action?.includes('SUSPEND')) return 'bg-orange-500/10 text-orange-500';
+    if (action?.includes('REACTIVATE')) return 'bg-blue-500/10 text-blue-500';
+    return 'bg-muted text-muted-foreground';
+  };
 
   if (logsLoading) {
     return (
@@ -88,7 +114,7 @@ export default function AuditLogsPage() {
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4">
         <Input
-          placeholder="Search logs by admin email, action, or target..."
+          placeholder="Search by admin email, action, or target..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="bg-input border-border text-foreground placeholder:text-muted-foreground md:flex-1"
@@ -98,7 +124,7 @@ export default function AuditLogsPage() {
             <SelectValue placeholder="Filter by action" />
           </SelectTrigger>
           <SelectContent className="bg-card border-border">
-            <SelectItem value="">All Actions</SelectItem>
+            <SelectItem value="ALL">All Actions</SelectItem>
             {uniqueActions.map(action => (
               <SelectItem key={action} value={action}>
                 {action}
@@ -115,8 +141,8 @@ export default function AuditLogsPage() {
             <TableRow className="border-border hover:bg-transparent">
               <TableHead className="text-foreground">Admin</TableHead>
               <TableHead className="text-foreground">Action</TableHead>
-              <TableHead className="text-foreground">Target</TableHead>
-              <TableHead className="text-foreground">Details</TableHead>
+              <TableHead className="text-foreground">Target User</TableHead>
+              <TableHead className="text-foreground">Reason / Notes</TableHead>
               <TableHead className="text-foreground">IP Address</TableHead>
               <TableHead className="text-foreground">Timestamp</TableHead>
             </TableRow>
@@ -130,36 +156,43 @@ export default function AuditLogsPage() {
               </TableRow>
             ) : (
               filteredLogs.map((log) => (
-                <TableRow key={log.id} className="border-border hover:bg-card/50">
+                <TableRow key={log.id} className="border-border hover:bg-muted/20">
                   <TableCell className="font-medium text-foreground text-sm">
                     {log.adminEmail || 'N/A'}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    <span className="px-2 py-1 rounded bg-blue-500/10 text-blue-500 text-xs font-medium">
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${getActionBadgeColor(log.action)}`}>
                       {log.action || 'UNKNOWN'}
                     </span>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {log.targetType && log.targetId
-                      ? `${log.targetType}#${log.targetId.substring(0, 8)}`
-                      : 'N/A'}
+                    <div>{log.targetUserEmail || '—'}</div>
+                    {log.targetUserId && (
+                      <div className="text-xs opacity-60 font-mono">
+                        {log.targetUserId.toString().substring(0, 8)}...
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm max-w-xs">
-                    <div className="truncate" title={log.details || '-'}>
-                      {log.details || '-'}
-                    </div>
+                    {log.reason ? (
+                      <div className="truncate" title={log.reason}>{log.reason}</div>
+                    ) : log.notes ? (
+                      <div className="truncate opacity-60 italic" title={log.notes}>{log.notes}</div>
+                    ) : (
+                      <span className="opacity-40">—</span>
+                    )}
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {log.ipAddress || 'N/A'}
+                  <TableCell className="text-muted-foreground text-xs font-mono">
+                    {log.ipAddress || '—'}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                    {log.createdAt 
+                    {log.createdAt
                       ? new Date(log.createdAt).toLocaleString('en-US', {
                           year: 'numeric',
                           month: 'short',
                           day: 'numeric',
                           hour: '2-digit',
-                          minute: '2-digit'
+                          minute: '2-digit',
                         })
                       : 'N/A'}
                   </TableCell>
@@ -170,7 +203,6 @@ export default function AuditLogsPage() {
         </Table>
       </div>
 
-      {/* Pagination info */}
       {logs.length > 0 && (
         <div className="text-sm text-muted-foreground text-center">
           Showing {filteredLogs.length} of {logs.length} log{logs.length !== 1 ? 's' : ''}

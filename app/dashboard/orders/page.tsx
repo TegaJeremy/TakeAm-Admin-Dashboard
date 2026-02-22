@@ -22,98 +22,130 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Eye, Plus, Trash2 } from 'lucide-react';
+import { Eye, ShoppingCart } from 'lucide-react';
 
-interface Product {
+interface OrderItem {
   id: string;
   productName: string;
   grade: string;
-  availableWeight: number;
+  quantityKg: number;
   pricePerKg: number;
-  description?: string;
-  location?: string;
+  subtotal: number;
+}
+
+interface Order {
+  id: string;
+  buyerId: string;
+  subtotal: number;
+  deliveryFee: number;
+  grandTotal: number;
+  deliveryAddress: string;
+  deliveryType: string;
+  deliveryStatus: string;
+  paymentMethod: string;
+  paymentStatus: string;
   status: string;
-  traderId?: string;
-  gradingId?: string;
-  images?: Array<{
-    id: string;
-    imageUrl: string;
-  }>;
+  items: OrderItem[];
   createdAt: string;
   updatedAt: string;
 }
 
-export default function ProductsPage() {
+export default function OrdersPage() {
   const { token, isLoading } = useAuth();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [productsLoading, setProductsLoading] = useState(true);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const PAGE_SIZE = 20;
 
   useEffect(() => {
     if (!token || isLoading) return;
+    fetchOrders();
+  }, [token, isLoading, page]);
 
-    const fetchProducts = async () => {
-  try {
-    const response = await adminApi.getProducts(token) as any;
-    
-    // Handle different response formats
-    let productsData: Product[] = [];
-    if (response?.data) {
-      productsData = Array.isArray(response.data) ? response.data : [];
-    } else if (Array.isArray(response)) {
-      productsData = response;
-    }
-    
-    console.log('[Products] Fetched:', productsData);
-    setProducts(productsData);
-  } catch (error: any) {
-    console.error('[Products] Error fetching products:', error);
-    toast.error(error.message || 'Failed to load products');
-  } finally {
-    setProductsLoading(false);
-  }
-};
-
-    fetchProducts();
-  }, [token, isLoading]);
-
-  const handleDelete = async (productId: string) => {
-    if (!token) return;
-    
-    if (!confirm('Are you sure you want to delete this product?')) return;
-
+  const fetchOrders = async () => {
+    setOrdersLoading(true);
     try {
-      await adminApi.deleteProduct(productId, token);
-      toast.success('Product deleted successfully');
-      setProducts(products.filter(p => p.id !== productId));
+      const response = await adminApi.getOrders(token!, { page, limit: PAGE_SIZE }) as any;
+
+      // Go backend returns { orders: [], total: number } or just an array
+      const ordersData =
+        response?.orders ||
+        response?.data?.orders ||
+        (Array.isArray(response?.data) ? response.data : null) ||
+        (Array.isArray(response) ? response : []);
+
+      const totalCount = response?.total || ordersData.length;
+
+      console.log('[Orders] Fetched:', ordersData);
+      setOrders(ordersData);
+      setTotal(totalCount);
     } catch (error: any) {
-      console.error('[Products] Error deleting product:', error);
-      toast.error(error.message || 'Failed to delete product');
+      console.error('[Orders] Error:', error);
+      toast.error(error.message || 'Failed to load orders');
+    } finally {
+      setOrdersLoading(false);
     }
   };
 
-  const filteredProducts = products.filter(product => {
-    if (!product) return false;
-    
-    // Search filter - with null checks
-    const matchesSearch = !searchQuery || 
-      product.productName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.location?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // Status filter
-    const matchesStatus = !statusFilter || product.status === statusFilter;
-    
+  const handleUpdateStatus = async (orderId: string, status: string) => {
+    if (!token) return;
+    try {
+      await adminApi.updateOrderStatus(orderId, status, token);
+      toast.success('Order status updated');
+      fetchOrders();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update status');
+    }
+  };
+
+  const filteredOrders = orders.filter(order => {
+    if (!order) return false;
+
+    const matchesSearch =
+      !searchQuery ||
+      order.id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.buyerId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.deliveryAddress?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesStatus =
+      statusFilter === 'ALL' || order.status === statusFilter;
+
     return matchesSearch && matchesStatus;
   });
 
-  if (productsLoading) {
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'PENDING':     return 'bg-amber-500/10 text-amber-500';
+      case 'CONFIRMED':   return 'bg-blue-500/10 text-blue-500';
+      case 'IN_TRANSIT':  return 'bg-purple-500/10 text-purple-500';
+      case 'DELIVERED':
+      case 'PICKED_UP':   return 'bg-emerald-500/10 text-emerald-500';
+      case 'CANCELLED':
+      case 'FAILED':      return 'bg-red-500/10 text-red-500';
+      default:            return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const getPaymentBadge = (status: string) => {
+    switch (status) {
+      case 'PAID':    return 'bg-emerald-500/10 text-emerald-500';
+      case 'PENDING': return 'bg-amber-500/10 text-amber-500';
+      case 'FAILED':  return 'bg-red-500/10 text-red-500';
+      default:        return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  if (ordersLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-border border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading products...</p>
+          <p className="text-muted-foreground">Loading orders...</p>
         </div>
       </div>
     );
@@ -121,23 +153,17 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Products</h1>
-          <p className="text-muted-foreground mt-2">Manage available food products</p>
+          <h1 className="text-3xl font-bold text-foreground">Orders</h1>
+          <p className="text-muted-foreground mt-1">{total} total orders</p>
         </div>
-        <Link href="/dashboard/products/new">
-          <Button className="gap-2 bg-primary hover:bg-blue-600">
-            <Plus className="w-4 h-4" />
-            New Product
-          </Button>
-        </Link>
       </div>
 
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4">
         <Input
-          placeholder="Search products by name, location, or description..."
+          placeholder="Search by order ID, buyer ID, or address..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="bg-input border-border text-foreground placeholder:text-muted-foreground md:flex-1"
@@ -147,93 +173,86 @@ export default function ProductsPage() {
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent className="bg-card border-border">
-            <SelectItem value="">All Statuses</SelectItem>
-            <SelectItem value="AVAILABLE">Available</SelectItem>
-            <SelectItem value="LOW_STOCK">Low Stock</SelectItem>
-            <SelectItem value="OUT_OF_STOCK">Out of Stock</SelectItem>
-            <SelectItem value="RESERVED">Reserved</SelectItem>
+            <SelectItem value="ALL">All Statuses</SelectItem>
+            <SelectItem value="PENDING">Pending</SelectItem>
+            <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+            <SelectItem value="IN_TRANSIT">In Transit</SelectItem>
+            <SelectItem value="DELIVERED">Delivered</SelectItem>
+            <SelectItem value="PICKED_UP">Picked Up</SelectItem>
+            <SelectItem value="CANCELLED">Cancelled</SelectItem>
+            <SelectItem value="FAILED">Failed</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {/* Products Table */}
+      {/* Table */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
-              <TableHead className="text-foreground">Product</TableHead>
-              <TableHead className="text-foreground">Grade</TableHead>
-              <TableHead className="text-foreground">Weight (kg)</TableHead>
-              <TableHead className="text-foreground">Price per kg</TableHead>
-              <TableHead className="text-foreground">Location</TableHead>
+              <TableHead className="text-foreground">Order ID</TableHead>
+              <TableHead className="text-foreground">Items</TableHead>
+              <TableHead className="text-foreground">Grand Total</TableHead>
+              <TableHead className="text-foreground">Delivery</TableHead>
+              <TableHead className="text-foreground">Payment</TableHead>
               <TableHead className="text-foreground">Status</TableHead>
+              <TableHead className="text-foreground">Date</TableHead>
               <TableHead className="text-foreground">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredProducts.length === 0 ? (
+            {filteredOrders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  {products.length === 0 ? 'No products yet' : 'No products match your filters'}
+                <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                  <ShoppingCart className="w-8 h-8 opacity-40 mx-auto mb-2" />
+                  {orders.length === 0 ? 'No orders yet' : 'No orders match your filters'}
                 </TableCell>
               </TableRow>
             ) : (
-              filteredProducts.map((product) => (
-                <TableRow key={product.id} className="border-border">
-                  <TableCell className="font-medium text-foreground">
-                    {product.productName || 'Unnamed Product'}
-                  </TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      product.grade === 'A' ? 'bg-emerald-500/10 text-emerald-500' :
-                      product.grade === 'B' ? 'bg-blue-500/10 text-blue-500' :
-                      product.grade === 'C' ? 'bg-amber-500/10 text-amber-500' :
-                      'bg-gray-500/10 text-gray-500'
-                    }`}>
-                      Grade {product.grade}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-foreground">
-                    {product.availableWeight?.toLocaleString() || '0'} kg
-                  </TableCell>
-                  <TableCell className="font-semibold text-foreground">
-                    ₦{product.pricePerKg?.toLocaleString() || '0'}
+              filteredOrders.map((order) => (
+                <TableRow key={order.id} className="border-border hover:bg-muted/20">
+                  <TableCell className="font-mono text-xs text-foreground">
+                    {order.id?.substring(0, 8)}...
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {product.location || 'N/A'}
+                    {order.items?.length || 0} item{(order.items?.length || 0) !== 1 ? 's' : ''}
+                  </TableCell>
+                  <TableCell className="font-semibold text-foreground">
+                    ₦{order.grandTotal?.toLocaleString() || '0'}
                   </TableCell>
                   <TableCell>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      product.status === 'AVAILABLE'
-                        ? 'bg-emerald-500/10 text-emerald-500'
-                        : product.status === 'LOW_STOCK'
-                        ? 'bg-amber-500/10 text-amber-500'
-                        : product.status === 'OUT_OF_STOCK'
-                        ? 'bg-blue-500/10 text-blue-500'
-                        : product.status === 'RESERVED'
-                        ? 'bg-purple-500/10 text-purple-500'
-                        : 'bg-gray-500/10 text-gray-500'
-                    }`}>
-                      {product.status || 'UNKNOWN'}
+                    <div className="space-y-1">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusBadge(order.deliveryStatus)}`}>
+                        {order.deliveryStatus}
+                      </span>
+                      <div className="text-xs text-muted-foreground">{order.deliveryType}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${getPaymentBadge(order.paymentStatus)}`}>
+                      {order.paymentStatus}
                     </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusBadge(order.status)}`}>
+                      {order.status}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                    {order.createdAt
+                      ? new Date(order.createdAt).toLocaleDateString('en-US', {
+                          month: 'short', day: 'numeric', year: 'numeric',
+                        })
+                      : '—'}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Link href={`/dashboard/products/${product.id}`}>
+                      <Link href={`/dashboard/orders/${order.id}`}>
                         <Button size="sm" variant="outline" className="gap-1">
                           <Eye className="w-4 h-4" />
                           <span className="hidden sm:inline">View</span>
                         </Button>
                       </Link>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1 text-destructive border-destructive/20 hover:bg-destructive/10"
-                        onClick={() => handleDelete(product.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        <span className="hidden sm:inline">Delete</span>
-                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -242,6 +261,31 @@ export default function ProductsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline" size="sm"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              Prev
+            </Button>
+            <Button
+              variant="outline" size="sm"
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

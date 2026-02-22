@@ -117,11 +117,17 @@ export const adminApi = {
     apiCall('/api/v1/admin/stats', { token }),
 
   // Agents
-  getAgents: (token: string, params?: { page?: number; size?: number }) => {
-    const query = params ? `?${new URLSearchParams(params as any).toString()}` : '';
-    return apiCall(`/api/v1/admin/agents/pending${query}`, { token });
-  },
+  getAgents: (token: string, params?: { page?: number; size?: number; status?: string }) => {
+  const query = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+  return apiCall(`/api/v1/admin/agents/pending${query}`, { token });
+},
 
+getAllAgents: (token: string, params?: { page?: number; size?: number }) => {
+  const p: Record<string, string> = { role: 'AGENT' };
+  if (params?.page !== undefined) p.page = String(params.page);
+  if (params?.size !== undefined) p.size = String(params.size);
+  return apiCall(`/api/v1/admin/users?${new URLSearchParams(p).toString()}`, { token });
+},
   getActiveAgents: (token: string) =>
     apiCall('/api/v1/admin/agents/active', { token }),
 
