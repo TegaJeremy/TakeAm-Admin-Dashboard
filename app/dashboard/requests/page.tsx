@@ -30,7 +30,7 @@ export default function RequestsPage() {
   const [requests, setRequests] = useState<Request[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     if (!token || isLoading) return;
@@ -46,6 +46,7 @@ export default function RequestsPage() {
         } else if (statusFilter === 'COMPLETED') {
           response = await adminApi.getCompletedRequests(token);
         } else {
+          // "all" - fetch all requests
           response = await adminApi.getAllRequests(token);
         }
         
@@ -56,7 +57,8 @@ export default function RequestsPage() {
         setRequests(Array.isArray(requestsData) ? requestsData : []);
       } catch (error: any) {
         console.error('[Requests] Error fetching requests:', error);
-        toast.error(error.message || 'Failed to load requests');
+        toast.error(error.message || 'Failed to load requests. Please check if the backend service is running.');
+        setRequests([]); // Set empty array on error so page doesn't crash
       } finally {
         setRequestsLoading(false);
       }
@@ -108,7 +110,7 @@ export default function RequestsPage() {
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent className="bg-card border-border">
-            <SelectItem value="">All Statuses</SelectItem>
+            <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="PENDING">Pending</SelectItem>
             <SelectItem value="ACCEPTED">Accepted</SelectItem>
             <SelectItem value="COMPLETED">Completed</SelectItem>

@@ -38,22 +38,25 @@ export default function PaymentsPage() {
     if (!token || isLoading) return;
 
     const fetchPayments = async () => {
-      try {
-        const response = await adminApi.getPendingPayments(token) as any;
-        
-        // Handle different response formats
-        const paymentsData = response?.data || response || [];
-        console.log('[Payments] Fetched:', paymentsData);
-        
-        setPayments(Array.isArray(paymentsData) ? paymentsData : []);
-      } catch (error: any) {
-        console.error('[Payments] Error fetching payments:', error);
-        toast.error(error.message || 'Failed to load payments');
-      } finally {
-        setPaymentsLoading(false);
-      }
-    };
-
+  try {
+    const response: any = await adminApi.getPendingPayments(token!);
+    
+    console.log('[Payments] Raw response:', response);
+    
+    // Extract the actual payments array from the nested response
+    const paymentsData = response?.data?.pendingPayments || response?.pendingPayments || [];
+    
+    console.log('[Payments] Payments array:', paymentsData);
+    console.log('[Payments] Count:', paymentsData.length);
+    
+    setPayments(paymentsData);
+  } catch (error: any) {
+    console.error('[Payments] Error:', error);
+    toast.error(error.message || 'Failed to load payments');
+  } finally {
+    setPaymentsLoading(false);
+  }
+};
     fetchPayments();
   }, [token, isLoading]);
 

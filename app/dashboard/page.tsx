@@ -63,17 +63,26 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!token || isLoading) return;
 
-    const fetchStats = async () => {
-      try {
-        const data = await adminApi.getStats(token);
-        setStats(data);
-      } catch (error) {
-        console.error('[v0] Error fetching stats:', error);
-        toast.error('Failed to load dashboard stats');
-      } finally {
-        setStatsLoading(false);
-      }
-    };
+  const fetchStats = async () => {
+  try {
+    const data: any = await adminApi.getStats(token!);
+    console.log('[Dashboard] Stats:', data);
+    setStats(data);
+  } catch (error: any) {
+    console.error('[Dashboard] Error fetching stats:', error);
+    // Don't crash - just use default zero stats
+    setStats({
+      totalRequests: 0,
+      pendingRequests: 0,
+      activeRequests: 0,
+      completedRequests: 0,
+      totalPendingPayments: 0,
+      totalPendingAmount: 0
+    });
+  } finally {
+    setStatsLoading(false);
+  }
+};
 
     fetchStats();
   }, [token, isLoading]);
